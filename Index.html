@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 720px;
+      margin: 32px auto;
+      padding: 0 16px;
+      color: #222;
+    }
+    .topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #555;
+    }
+    .duelo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) {
+      .duelo { grid-template-columns: 1fr; }
+    }
+    .card {
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      background: #fafafa;
+      cursor: pointer;
+      transition: transform 0.1s ease, border-color 0.15s ease;
+    }
+    .card:hover {
+      border-color: #1a73e8;
+      transform: translateY(-2px);
+    }
+    .titulo-item {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .desc-item {
+      font-size: 14px;
+      color: #555;
+    }
+    .acoes-rodape {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    button.encerrar {
+      padding: 10px 16px;
+      border: 1px solid #888;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .mensagem-final {
+      padding: 24px;
+      border-radius: 10px;
+      background: #eef6ee;
+      border: 1px solid #b7dfb7;
+    }
+  </style>
+</head>
+<body>
+  <div class="topo">
+    <div>ID: <strong id="uidLabel">carregando...</strong></div>
+    <div id="contador">Carregando...</div>
+  </div>
+
+  <div id="areaJogo">
+    <p>Qual item você prefere?</p>
+    <div class="duelo" id="dueloContainer"></div>
+
+    <div class="acoes-rodape">
+      <span id="statusTexto" style="font-size: 13px; color: #666;"></span>
+      <button class="encerrar" onclick="encerrarParticipacao()">Concluir e sair</button>
+    </div>
+  </div>
+
+  <div id="areaFinal" class="mensagem-final" style="display: none;">
+    <h3>Obrigado pela participação!</h3>
+    <p id="resumoFinal">Suas escolhas foram registradas.</p>
+  </div>
+
+  <script>
+
+    const CANAL = <?= JSON.stringify(canal) ?>;
+
+    function obterOuCriarUidAutomatico() {
+      const STORAGE_KEY = 'torneio_auto_uid';
+      let uid = localStorage.getItem(STORAGE_KEY);
+
+      if (!uid) {
+        const sufixo = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID().split('-')[0]
+          : Math.random().toString(36).substring(2, 10);
+        uid = 'u_' + sufixo;
+        localStorage.setItem(STORAGE_KEY, uid);
+      }
+
+      // Atualiza a URL visível no navegador sem recarregar a página
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('uid', uid);
+        window.history.replaceState({}, '', url.toString());
+      } catch (err) {
+        // Em alguns iframes restritos do Google, replaceState pode ser bloqueado;
+        // o UID continua salvo em memória e no localStorage sem quebrar o fluxo.
+      }
+
+      return uid;
+    }
+
+    const UID = obterOuCriarUidAutomatico();
+    document.getElementById('uidLabel').textContent = UID + ' (' + CANAL + ')';
+        
+        let parAtual = null;
+        let bloqueado = false;
+        let votosNestaSessao = 0;
+
+        function carregarPar() {
+          bloqueado = false;
+          document.getElementById('statusTexto').textContent = 'Buscando próximo duelo...';
+
+          google.script.run
+            .withSuccessHandler(function(res) {
+              if (res.status === 'ok') {
+                parAtual = res;
+                document.getElementById('contador').textContent =
+                  'Respondidos por você: ' + res.totalRespondidosUsuario;
+                document.getElementById('statusTexto').textContent =
+                  'Você pode encerrar quando quiser.';
+                renderizarPar(res.itemA, res.itemB);
+              } else {
+                mostrarTelaFinal(res.mensagem);
+              }
+            })
+            .withFailureHandler(function(err) {
+              document.getElementById('statusTexto').textContent = 'Erro: ' + err.message;
+            })
+            .obterProximoPar(UID);
+        }
+
+        function renderizarPar(a, b) {
+          const container = document.getElementById('dueloContainer');
+          container.innerHTML = '';
+          container.appendChild(criarCard(a, b.id));
+          container.appendChild(criarCard(b, a.id));
+        }
+
+        function criarCard(item, outroId) {
+          const div = document.createElement('div');
+          div.className = 'card';
+          div.onclick = function() {
+            if (bloqueado) return;
+            bloqueado = true;
+            document.getElementById('statusTexto').textContent = 'Registrando escolha...';
+
+            google.script.run
+              .withSuccessHandler(function() {
+                votosNestaSessao++;
+                carregarPar();
+              })
+              .withFailureHandler(function(err) {
+                bloqueado = false;
+                document.getElementById('statusTexto').textContent = 'Erro ao salvar: ' + err.message;
+              })
+              .registrarVoto(UID, CANAL, parAtual.itemA.id, parAtual.itemB.id, item.id);
+          };
+
+          div.innerHTML =
+            '<div class="titulo-item">' + escaparHtml(item.nome) + '</div>' +
+            '<div class="desc-item">' + escaparHtml(item.descricao) + '</div>';
+          return div;
+        }
+
+        function encerrarParticipacao() {
+          mostrarTelaFinal('Você respondeu ' + votosNestaSessao + ' duelo(s) nesta sessão. Pode fechar esta aba.');
+        }
+
+        function mostrarTelaFinal(texto) {
+          document.getElementById('areaJogo').style.display = 'none';
+          document.getElementById('resumoFinal').textContent = texto;
+          document.getElementById('areaFinal').style.display = 'block';
+        }
+
+        function escaparHtml(str) {
+          return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        }
+
+        carregarPar();
+  </script>
+</body>
+</html>

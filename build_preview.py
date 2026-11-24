@@ -1,0 +1,910 @@
+import json
+import os
+
+with open("items_data.json", "r", encoding="utf-8") as f:
+    items_json = f.read()
+
+template = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torneio Bradley-Terry / Elo - Pré-visualização Completa</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --success: #10b981;
+      --success-light: #ecfdf5;
+      --danger: #ef4444;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1;
+      --slate-400: #94a3b8;
+      --slate-500: #64748b;
+      --slate-600: #475569;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+      --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1);
+      --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.25);
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--slate-50);
+      color: var(--slate-800);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container { width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+    
+    /* Header & Nav */
+    .navbar {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--slate-200);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 70px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--slate-900);
+      text-decoration: none;
+    }
+    .brand-badge {
+      background: linear-gradient(135deg, var(--primary), #818cf8);
+      color: white;
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+    }
+    .tabs-nav {
+      display: flex;
+      gap: 6px;
+      background: var(--slate-100);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--slate-200);
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--slate-600);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab-btn:hover { color: var(--primary); }
+    .tab-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+      font-weight: 700;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+    }
+    .btn-success:hover {
+      background: linear-gradient(135deg, #059669, #047857);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: white; border-color: var(--slate-300); color: var(--slate-700); }
+    .btn-outline:hover { background: var(--slate-100); }
+    .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+
+    /* Content Area */
+    .main-body { flex: 1; padding: 32px 0 48px; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Arena Duelo */
+    .arena-hero { text-align: center; margin-bottom: 24px; }
+    .arena-hero h1 { font-size: 1.85rem; font-weight: 800; color: var(--slate-900); }
+    .arena-hero p { font-size: 1.05rem; color: var(--slate-500); margin-top: 4px; }
+    
+    .session-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--slate-200);
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge-primary { background: var(--primary-light); color: var(--primary); }
+    .badge-success { background: var(--success-light); color: var(--success); }
+    .badge-slate { background: var(--slate-100); color: var(--slate-700); }
+
+    .duel-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 768px) {
+      .duel-grid { grid-template-columns: 1fr; }
+    }
+    .vs-circle {
+      width: 52px;
+      height: 52px;
+      background: var(--slate-900);
+      color: white;
+      font-weight: 800;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-lg);
+      border: 3px solid white;
+      margin: 0 auto;
+    }
+    .duel-card {
+      background: white;
+      border: 2px solid var(--slate-200);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      min-height: 240px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      user-select: none;
+    }
+    .duel-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: var(--shadow-glow), var(--shadow-lg);
+    }
+    .duel-card:active { transform: translateY(1px); }
+    .card-kbd {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--slate-400);
+      background: var(--slate-100);
+      border: 1px solid var(--slate-300);
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+    .card-code {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .card-name {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--slate-900);
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 0.95rem;
+      color: var(--slate-600);
+      line-height: 1.45;
+      margin-bottom: 16px;
+      flex-grow: 1;
+    }
+    .card-foot {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      font-size: 0.85rem;
+      color: var(--slate-500);
+      border-top: 1px dashed var(--slate-200);
+      padding-top: 12px;
+    }
+
+    /* Podium */
+    .podium-wrap {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 768px) { .podium-wrap { grid-template-columns: 1fr; } }
+    .podium-item {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      text-align: center;
+      border: 2px solid var(--slate-200);
+      box-shadow: var(--shadow-md);
+      transition: var(--transition);
+    }
+    .podium-gold {
+      border-color: #f59e0b;
+      background: linear-gradient(180deg, #fffbeb, white);
+      order: 2;
+      padding-top: 32px;
+    }
+    .podium-silver {
+      border-color: #94a3b8;
+      background: linear-gradient(180deg, #f8fafc, white);
+      order: 1;
+    }
+    .podium-bronze {
+      border-color: #d97706;
+      background: linear-gradient(180deg, #fff7ed, white);
+      order: 3;
+    }
+    .podium-item:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+
+    /* Tables */
+    .table-box {
+      background: white;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--slate-200);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .table-top {
+      padding: 16px 20px;
+      background: var(--slate-50);
+      border-bottom: 1px solid var(--slate-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .search-input {
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--slate-300);
+      font-size: 0.9rem;
+      width: 280px;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--primary); }
+    .table-scroll { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th {
+      background: var(--slate-100);
+      padding: 12px 16px;
+      font-weight: 700;
+      color: var(--slate-700);
+      text-align: left;
+      border-bottom: 1px solid var(--slate-200);
+      white-space: nowrap;
+    }
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--slate-200);
+      vertical-align: middle;
+    }
+    tr:hover td { background: var(--slate-50); }
+    .bar-bg {
+      width: 80px;
+      height: 7px;
+      background: var(--slate-200);
+      border-radius: 999px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .bar-fill { height: 100%; background: var(--success); border-radius: 999px; }
+
+    /* Tiers */
+    .tier-badge { padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
+    .tier-s { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .tier-a { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .tier-b { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    .tier-c { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+    .tier-d { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    /* KPIs */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .kpi-card {
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      border: 1px solid var(--slate-200);
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-label { font-size: 0.8rem; font-weight: 600; color: var(--slate-500); text-transform: uppercase; margin-bottom: 4px; }
+    .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--slate-900); }
+
+    /* Toast */
+    #toastBox {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      background: var(--slate-900);
+      color: white;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg);
+      font-size: 0.9rem;
+      font-weight: 500;
+      animation: toastIn 0.2s ease-out;
+    }
+    @keyframes toastIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar com Navegação por Abas e Botão de Exportar Planilha -->
+  <header class="navbar">
+    <div class="container nav-inner">
+      <div class="brand">
+        <div class="brand-badge">⚔️</div>
+        <span>Torneio Bradley-Terry</span>
+      </div>
+
+      <!-- Abas para alternar todas as visualizações em um só lugar -->
+      <nav class="tabs-nav">
+        <button class="tab-btn active" onclick="trocarAba('duelo')">
+          <span>⚔️</span> Duelo Interativo
+        </button>
+        <button class="tab-btn" onclick="trocarAba('ranking')">
+          <span>🏆</span> Ranking & Pódio
+        </button>
+        <button class="tab-btn" onclick="trocarAba('admin')">
+          <span>📊</span> Painel Admin
+        </button>
+      </nav>
+
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <!-- Botão de Exportar em Planilha Solicitado pelo Usuário -->
+        <button class="btn btn-success" onclick="exportarPlanilhaCSV()" title="Exporta os dados calculados para planilha (.csv / Excel)">
+          <span>📥</span> <strong>Exportar Planilha</strong>
+        </button>
+        <button class="btn btn-outline btn-sm" id="btnAudio" onclick="alternarSom()" title="Alternar som">🔊</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-body">
+    <div class="container">
+
+      <!-- ================= ABA 1: ARENA DE DUELO ================= -->
+      <div id="pane-duelo" class="tab-pane active">
+        <div class="arena-hero">
+          <h1>Qual brinde você prefere?</h1>
+          <p>Clique no seu favorito ou utilize os atalhos de teclado <strong>[1]</strong> e <strong>[2]</strong>.</p>
+        </div>
+
+        <div class="session-stats">
+          <div>
+            Participante: <strong id="sessaoUid" class="badge badge-primary">u_preview</strong>
+            <span style="margin-left: 12px;">Canal: <strong class="badge badge-slate">geral</strong></span>
+          </div>
+          <div>
+            Duelos nesta sessão: <strong id="sessaoContador" class="badge badge-success">0</strong>
+          </div>
+        </div>
+
+        <div class="duel-grid" id="areaCardsDuelo">
+          <!-- Cards gerados via JS -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+          <button class="btn btn-outline btn-sm" onclick="proximoDuelo()">
+            <span>⏭️</span> Pular Duelo (Espaço)
+          </button>
+          <span id="statusDuelo" style="font-size: 0.9rem; color: var(--slate-500);">
+            Escolha um item para atualizar o rating Elo instantaneamente.
+          </span>
+          <button class="btn btn-primary btn-sm" onclick="trocarAba('ranking')">
+            <span>🏆</span> Ver Classificação Geral
+          </button>
+        </div>
+      </div>
+
+      <!-- ================= ABA 2: RANKING E PÓDIO ================= -->
+      <div id="pane-ranking" class="tab-pane">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--slate-900);">🏆 Classificação Geral Oficial</h1>
+            <p style="font-size: 1rem; color: var(--slate-500);">Pontuações recalculadas em tempo real com o modelo Bradley-Terry e rating Elo.</p>
+          </div>
+          <button class="btn btn-success" onclick="exportarPlanilhaCSV()">
+            <span>📥</span> Baixar Planilha Completa
+          </button>
+        </div>
+
+        <!-- Pódio dos 3 Primeiros -->
+        <div class="podium-wrap" id="podiumArea"></div>
+
+        <!-- Tabela Completa -->
+        <div class="table-box">
+          <div class="table-top">
+            <input type="text" id="filtroBusca" class="search-input" placeholder="🔍 Buscar por nome ou código..." oninput="filtrarTabela()">
+            <div id="totalItensLabel" style="font-size: 0.9rem; color: var(--slate-500);"></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 65px; text-align: center;">Pos</th>
+                  <th style="width: 85px; text-align: center;">ID</th>
+                  <th>Brinde / Item</th>
+                  <th style="width: 100px; text-align: right;">Rating Elo</th>
+                  <th style="width: 110px; text-align: center;">Tier</th>
+                  <th style="width: 80px; text-align: center;">Duelos</th>
+                  <th style="width: 80px; text-align: center;">V / D</th>
+                  <th style="width: 160px;">Taxa de Vitória</th>
+                  <th style="width: 120px; text-align: right;">Chance vs Média</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaRankingCorpo"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= ABA 3: PAINEL ADMINISTRATIVO ================= -->
+      <div id="pane-admin" class="tab-pane">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <div>
+            <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--slate-900);">📊 Painel de Controle e Auditoria</h1>
+            <p style="font-size: 1rem; color: var(--slate-500);">Métricas executivas e registro de variações de pontos Elo.</p>
+          </div>
+          <button class="btn btn-success" onclick="exportarPlanilhaCSV()">
+            <span>📥</span> Exportar para Planilha
+          </button>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Total de Itens</div>
+            <div class="kpi-val" id="kpiTotalItens">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Duelos Computados</div>
+            <div class="kpi-val" style="color: var(--primary);" id="kpiTotalDuelos">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Item Mais Votado</div>
+            <div class="kpi-val" style="font-size: 1.2rem; color: #b45309;" id="kpiItemLider">-</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Maior Elo Registrado</div>
+            <div class="kpi-val" style="color: var(--success);" id="kpiMaiorElo">-</div>
+          </div>
+        </div>
+
+        <!-- Auditoria de Duelos Recentes -->
+        <div class="table-box">
+          <div class="table-top">
+            <h3 style="font-size: 1.1rem; font-weight: 700;">⚔️ Registro de Votos da Sessão (Auditoria)</h3>
+            <span class="badge badge-primary" id="badgeAuditCount">0 votos</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 60px; text-align: center;">#</th>
+                  <th>Horário</th>
+                  <th>Duelo</th>
+                  <th>Vencedor Escolhido</th>
+                  <th style="text-align: right;">Variação Elo (Δ)</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaAuditoriaCorpo">
+                <tr><td colspan="5" style="text-align: center; color: var(--slate-400); padding: 24px;">Nenhum duelo realizado nesta sessão ainda. Vote na aba 'Duelo Interativo'!</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="toastBox"></div>
+
+  <script>
+    // DADOS INICIAIS EMBUTIDOS (Carregados diretamente do banco SQLite / Excel)
+    let ITENS = __ITEMS_PLACEHOLDER__;
+    let historicoDuelos = [];
+    let duelosNaSessao = 0;
+    let parAtual = null;
+    let somLigado = true;
+
+    // Alternar Abas
+    function trocarAba(abaNome) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+      const targetPane = document.getElementById('pane-' + abaNome);
+      if (targetPane) targetPane.classList.add('active');
+
+      const btns = document.querySelectorAll('.tab-btn');
+      if (abaNome === 'duelo') btns[0].classList.add('active');
+      if (abaNome === 'ranking') { btns[1].classList.add('active'); renderizarRanking(); }
+      if (abaNome === 'admin') { btns[2].classList.add('active'); renderizarAdmin(); }
+    }
+
+    // Cálculos Bradley-Terry & Elo
+    function calcularPontosEsperados(ra, rb) {
+      const qa = Math.pow(10, ra / 400);
+      const qb = Math.pow(10, rb / 400);
+      return [qa / (qa + qb), qb / (qa + qb)];
+    }
+
+    function obterTier(elo) {
+      if (elo >= 1080) return { label: 'Elite (S)', cls: 'tier-s' };
+      if (elo >= 1030) return { label: 'Favorito (A)', cls: 'tier-a' };
+      if (elo >= 970) return { label: 'Competitivo (B)', cls: 'tier-b' };
+      if (elo >= 920) return { label: 'Desafiante (C)', cls: 'tier-c' };
+      return { label: 'Baixa Aderência (D)', cls: 'tier-d' };
+    }
+
+    function tocarSom() {
+      if (!somLigado) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch (e) {}
+    }
+
+    function alternarSom() {
+      somLigado = !somLigado;
+      document.getElementById('btnAudio').textContent = somLigado ? '🔊' : '🔇';
+    }
+
+    function mostrarToast(msg) {
+      const box = document.getElementById('toastBox');
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      box.appendChild(t);
+      setTimeout(() => t.remove(), 2400);
+    }
+
+    // Seleção de Duelo
+    function proximoDuelo() {
+      if (ITENS.length < 2) return;
+      // Ordena por menos jogos para balancear
+      const sorted = [...ITENS].sort((a,b) => (a.jogos - b.jogos) || (Math.random() - 0.5));
+      const a = sorted[Math.floor(Math.random() * Math.min(6, sorted.length))];
+      let oponentes = ITENS.filter(x => x.id !== a.id);
+      oponentes.sort((x, y) => Math.abs(x.rating_elo - a.rating_elo) - Math.abs(y.rating_elo - a.rating_elo));
+      const b = oponentes[Math.floor(Math.random() * Math.min(4, oponentes.length))];
+
+      parAtual = Math.random() > 0.5 ? [a, b] : [b, a];
+      renderizarCardsDuelo(parAtual[0], parAtual[1]);
+    }
+
+    function renderizarCardsDuelo(itemA, itemB) {
+      const area = document.getElementById('areaCardsDuelo');
+      const imgA = itemA.imagem_url || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&auto=format&fit=crop&q=80';
+      const imgB = itemB.imagem_url || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&auto=format&fit=crop&q=80';
+
+      area.innerHTML = `
+        <div class="duel-card" onclick="votar('${itemA.id}')">
+          <div class="card-kbd">[1] ou [←]</div>
+          <div style="width: 100%; height: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 14px; border: 1px solid #e2e8f0;">
+            <img src="${imgA}" alt="${itemA.nome}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&auto=format&fit=crop&q=80'">
+          </div>
+          <div>
+            <h3 class="card-name">${itemA.nome}</h3>
+            <p class="card-desc">${itemA.descricao || ''}</p>
+          </div>
+          <div class="card-foot" style="margin-top: 12px; border-top: none; padding-top: 0;">
+            <div style="width: 100%; background: #4f46e5; color: white; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.95rem;">
+              Escolher este brinde ✨
+            </div>
+          </div>
+        </div>
+
+        <div class="vs-circle">VS</div>
+
+        <div class="duel-card" onclick="votar('${itemB.id}')">
+          <div class="card-kbd">[2] ou [→]</div>
+          <div style="width: 100%; height: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 14px; border: 1px solid #e2e8f0;">
+            <img src="${imgB}" alt="${itemB.nome}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&auto=format&fit=crop&q=80'">
+          </div>
+          <div>
+            <h3 class="card-name">${itemB.nome}</h3>
+            <p class="card-desc">${itemB.descricao || ''}</p>
+          </div>
+          <div class="card-foot" style="margin-top: 12px; border-top: none; padding-top: 0;">
+            <div style="width: 100%; background: #4f46e5; color: white; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.95rem;">
+              Escolher este brinde ✨
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function votar(vencedorId) {
+      if (!parAtual) return;
+      tocarSom();
+
+      const [itemA, itemB] = parAtual;
+      const [expA, expB] = calcularPontosEsperados(itemA.rating_elo, itemB.rating_elo);
+
+      const k = 32.0;
+      const scoreA = vencedorId === itemA.id ? 1.0 : 0.0;
+      const scoreB = 1.0 - scoreA;
+
+      const deltaA = k * (scoreA - expA);
+      const deltaB = k * (scoreB - expB);
+
+      itemA.rating_elo = Math.round((itemA.rating_elo + deltaA) * 10) / 10;
+      itemB.rating_elo = Math.round((itemB.rating_elo + deltaB) * 10) / 10;
+      itemA.jogos++;
+      itemB.jogos++;
+
+      if (vencedorId === itemA.id) {
+        itemA.vitorias = (itemA.vitorias || 0) + 1;
+        itemB.derrotas = (itemB.derrotas || 0) + 1;
+      } else {
+        itemB.vitorias = (itemB.vitorias || 0) + 1;
+        itemA.derrotas = (itemA.derrotas || 0) + 1;
+      }
+
+      duelosNaSessao++;
+      document.getElementById('sessaoContador').textContent = duelosNaSessao;
+
+      const deltaPts = Math.abs(deltaA).toFixed(1);
+      const vencedorNome = vencedorId === itemA.id ? itemA.nome : itemB.nome;
+      mostrarToast(`Voto registrado! +${deltaPts} pts para "${vencedorNome}"`);
+
+      // Registra na auditoria
+      historicoDuelos.unshift({
+        id: duelosNaSessao,
+        hora: new Date().toLocaleTimeString(),
+        duelo: `${itemA.nome} vs ${itemB.nome}`,
+        vencedor: vencedorNome,
+        delta: deltaPts
+      });
+
+      proximoDuelo();
+    }
+
+    // Renderizar Ranking e Pódio
+    function renderizarRanking() {
+      const ordenados = [...ITENS].sort((a,b) => b.rating_elo - a.rating_elo || b.vitorias - a.vitorias);
+
+      // Pódio
+      const pArea = document.getElementById('podiumArea');
+      if (ordenados.length >= 3) {
+        pArea.innerHTML = `
+          <div class="podium-item podium-silver">
+            <div style="font-size: 2rem;">🥈</div>
+            <span class="badge badge-slate">2º Lugar</span>
+            <h3 style="margin: 6px 0; font-size: 1.15rem;">${ordenados[1].nome}</h3>
+            <div style="font-size: 1.3rem; font-weight: 800; color: var(--primary);">${ordenados[1].rating_elo.toFixed(1)}</div>
+            <p style="font-size: 0.8rem; color: var(--slate-500);">${ordenados[1].vitorias}V / ${ordenados[1].derrotas}D (${obterWinRate(ordenados[1])}%)</p>
+          </div>
+          <div class="podium-item podium-gold">
+            <div style="font-size: 2.4rem;">👑🥇</div>
+            <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800;">1º Campeão</span>
+            <h2 style="margin: 6px 0; font-size: 1.3rem;">${ordenados[0].nome}</h2>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #b45309;">${ordenados[0].rating_elo.toFixed(1)}</div>
+            <p style="font-size: 0.85rem; color: #78350f;">${ordenados[0].vitorias}V / ${ordenados[0].derrotas}D (${obterWinRate(ordenados[0])}%)</p>
+          </div>
+          <div class="podium-item podium-bronze">
+            <div style="font-size: 2rem;">🥉</div>
+            <span class="badge badge-slate">3º Lugar</span>
+            <h3 style="margin: 6px 0; font-size: 1.15rem;">${ordenados[2].nome}</h3>
+            <div style="font-size: 1.3rem; font-weight: 800; color: var(--primary);">${ordenados[2].rating_elo.toFixed(1)}</div>
+            <p style="font-size: 0.8rem; color: var(--slate-500);">${ordenados[2].vitorias}V / ${ordenados[2].derrotas}D (${obterWinRate(ordenados[2])}%)</p>
+          </div>
+        `;
+      }
+
+      // Tabela
+      const corpo = document.getElementById('tabelaRankingCorpo');
+      corpo.innerHTML = '';
+      ordenados.forEach((item, idx) => {
+        const tier = obterTier(item.rating_elo);
+        const winRate = obterWinRate(item);
+        const chanceMedia = (1 / (1 + Math.pow(10, (1000 - item.rating_elo) / 400)) * 100).toFixed(1);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="text-align: center; font-weight: 700;">${idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : (idx + 1)}</td>
+          <td style="text-align: center;"><code style="background: var(--slate-100); padding: 2px 5px; border-radius: 4px;">${item.id}</code></td>
+          <td>
+            <div style="font-weight: 700; color: var(--slate-900);">${item.nome}</div>
+            <div style="font-size: 0.8rem; color: var(--slate-500);">${item.descricao || ''}</div>
+          </td>
+          <td style="text-align: right; font-weight: 800; color: var(--primary); font-size: 1.05rem;">${item.rating_elo.toFixed(1)}</td>
+          <td style="text-align: center;"><span class="tier-badge ${tier.cls}">${tier.label}</span></td>
+          <td style="text-align: center; font-weight: 600;">${item.jogos}</td>
+          <td style="text-align: center; font-size: 0.85rem;"><span style="color: var(--success); font-weight: 700;">${item.vitorias || 0}</span> / <span style="color: var(--danger);">${item.derrotas || 0}</span></td>
+          <td>
+            <div class="bar-bg"><div class="bar-fill" style="width: ${winRate}%;"></div></div>
+            <span style="font-size: 0.85rem; font-weight: 600;">${winRate}%</span>
+          </td>
+          <td style="text-align: right; font-weight: 700; color: var(--slate-700);">${chanceMedia}%</td>
+        `;
+        corpo.appendChild(tr);
+      });
+
+      document.getElementById('totalItensLabel').textContent = `${ordenados.length} itens ranqueados`;
+    }
+
+    function obterWinRate(item) {
+      if (!item.jogos || item.jogos === 0) return 0;
+      return Math.round(((item.vitorias || 0) / item.jogos) * 100);
+    }
+
+    function filtrarTabela() {
+      const termo = document.getElementById('filtroBusca').value.toLowerCase();
+      document.querySelectorAll('#tabelaRankingCorpo tr').forEach(tr => {
+        tr.style.display = tr.innerText.toLowerCase().includes(termo) ? '' : 'none';
+      });
+    }
+
+    // Renderizar Admin
+    function renderizarAdmin() {
+      const ordenados = [...ITENS].sort((a,b) => b.rating_elo - a.rating_elo);
+      const totalJogos = ITENS.reduce((acc, cur) => acc + (cur.jogos || 0), 0) / 2;
+
+      document.getElementById('kpiTotalItens').textContent = ITENS.length;
+      document.getElementById('kpiTotalDuelos').textContent = Math.round(totalJogos);
+      document.getElementById('kpiItemLider').textContent = ordenados[0] ? ordenados[0].nome : '-';
+      document.getElementById('kpiMaiorElo').textContent = ordenados[0] ? ordenados[0].rating_elo.toFixed(1) : '-';
+
+      const auditBody = document.getElementById('tabelaAuditoriaCorpo');
+      document.getElementById('badgeAuditCount').textContent = `${historicoDuelos.length} votos nesta sessão`;
+      if (historicoDuelos.length > 0) {
+        auditBody.innerHTML = '';
+        historicoDuelos.forEach(d => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td style="text-align: center; color: var(--slate-400);">${d.id}</td>
+            <td style="color: var(--slate-500);">${d.hora}</td>
+            <td><strong>${d.duelo}</strong></td>
+            <td><span class="badge badge-success">🏆 ${d.vencedor}</span></td>
+            <td style="text-align: right; font-weight: 700; color: var(--primary);">±${d.delta} pts</td>
+          `;
+          auditBody.appendChild(row);
+        });
+      }
+    }
+
+    // Exportação em Planilha (CSV / Excel formatado com BOM UTF-8)
+    function exportarPlanilhaCSV() {
+      const ordenados = [...ITENS].sort((a,b) => b.rating_elo - a.rating_elo);
+      let csv = "\uFEFF"; // BOM UTF-8 para Excel abrir acentos perfeitamente
+      csv += "Posição;ID;Nome do Item;Descrição;Rating Elo;Tier;Duelos;Vitórias;Derrotas;Taxa de Vitória (%);Força BT (pi);Chance vs Média (%)\r\n";
+
+      ordenados.forEach((item, idx) => {
+        const tier = obterTier(item.rating_elo).label;
+        const wr = obterWinRate(item);
+        const chance = (1 / (1 + Math.pow(10, (1000 - item.rating_elo) / 400)) * 100).toFixed(1);
+        const desc = (item.descricao || '').replace(/;/g, ',').replace(/\n/g, ' ');
+
+        csv += `${idx + 1};${item.id};"${item.nome}";"${desc}";${item.rating_elo.toFixed(1)};${tier};${item.jogos};${item.vitorias || 0};${item.derrotas || 0};${wr}%;${Math.pow(10, (item.rating_elo - 1000)/400).toFixed(3)};${chance}%\r\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Torneio_Bradley_Terry_Ranking_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      mostrarToast('📥 Planilha gerada e baixada com sucesso!');
+    }
+
+    // Teclas de Atalho
+    document.addEventListener('keydown', e => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (!parAtual) return;
+      if (e.key === '1' || e.key === 'ArrowLeft') { e.preventDefault(); votar(parAtual[0].id); }
+      if (e.key === '2' || e.key === 'ArrowRight') { e.preventDefault(); votar(parAtual[1].id); }
+      if (e.key === ' ' || e.key === 's' || e.key === 'S') { e.preventDefault(); proximoDuelo(); }
+    });
+
+    // Início
+    proximoDuelo();
+  </script>
+</body>
+</html>"""
+
+final_html = template.replace("__ITEMS_PLACEHOLDER__", items_json)
+
+with open("preview.html", "w", encoding="utf-8") as out:
+    out.write(final_html)
+
+print("preview.html successfully written!")

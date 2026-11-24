@@ -1,0 +1,538 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Administrativo & Análise de Dados | Mercado em Conexão{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+  <div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+      <span class="badge badge-primary">Área Restrita</span>
+      <span class="badge badge-accent">Mercado em Conexão UFMG</span>
+    </div>
+    <h1 class="admin-title">Painel Executivo & Auditoria de Preferências</h1>
+    <p style="color: var(--slate-500); font-size: 0.95rem;">
+      Gerenciamento central de leads inscritos, rankings Bradley-Terry/Elo de brindes e palestras por engenharia.
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+    <!-- Botão Principal de Exportação Excel -->
+    <a href="/api/exportar" class="btn btn-accent btn-md" download title="Baixar relatório completo em planilha (.xlsx) com múltiplas abas">
+      <span>📥</span> <strong>Exportar Planilha Excel (.xlsx)</strong>
+    </a>
+  </div>
+</div>
+
+<!-- KPIs Executivos do Sistema -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-title">Estudantes Inscritos</div>
+    <div class="kpi-value" style="color: var(--primary);">{{ stats.total_inscritos }}</div>
+    <span style="font-size: 0.8rem; color: var(--slate-500);">Formulário oficial</span>
+  </div>
+
+  <div class="kpi-card secondary">
+    <div class="kpi-title">Total de Votos (Brindes)</div>
+    <div class="kpi-value" style="color: var(--secondary-hover);">{{ stats.duelos_brindes }}</div>
+    <span style="font-size: 0.8rem; color: var(--slate-500);">Duelos pareados</span>
+  </div>
+
+  <div class="kpi-card accent">
+    <div class="kpi-title">Total de Votos (Palestras)</div>
+    <div class="kpi-value" style="color: var(--accent);">{{ stats.duelos_palestras }}</div>
+    <span style="font-size: 0.8rem; color: var(--slate-500);">Filtrados por curso</span>
+  </div>
+
+  <div class="kpi-card success">
+    <div class="kpi-title">Brinde Líder</div>
+    <div class="kpi-value" style="font-size: 1.15rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ stats.brinde_lider }}">
+      {{ stats.brinde_lider }}
+    </div>
+    <span style="font-size: 0.8rem; color: var(--success); font-weight: 700;">Elo {{ "%.1f"|format(stats.brinde_lider_elo) }}</span>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-title">Palestra Líder</div>
+    <div class="kpi-value" style="font-size: 1.15rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ stats.palestra_lider }}">
+      {{ stats.palestra_lider }}
+    </div>
+    <span style="font-size: 0.8rem; color: var(--primary); font-weight: 700;">Elo {{ "%.1f"|format(stats.palestra_lider_elo) }}</span>
+  </div>
+</div>
+
+<!-- Abas de Navegação do Painel Admin -->
+<div class="admin-tabs">
+  <button class="tab-btn active" onclick="trocarAba(this, 'tabInscritos')">
+    <span>📋</span> Inscritos no Formulário ({{ inscritos|length }})
+  </button>
+  <button class="tab-btn" onclick="trocarAba(this, 'tabBrindes')">
+    <span>🎁</span> Ranking de Brindes ({{ leaderboard_brindes|length }})
+  </button>
+  <button class="tab-btn" onclick="trocarAba(this, 'tabPalestras')">
+    <span>🎤</span> Ranking de Palestras ({{ leaderboard_palestras|length }})
+  </button>
+  <button class="tab-btn" onclick="trocarAba(this, 'tabAuditoria')">
+    <span>⚔️</span> Auditoria de Duelos
+  </button>
+  <button class="tab-btn" onclick="trocarAba(this, 'tabLinks')">
+    <span>🔗</span> Links por Iniciativa
+  </button>
+  <button class="tab-btn" onclick="trocarAba(this, 'tabConfig')">
+    <span>⚙️</span> Configurações
+  </button>
+</div>
+
+<!-- ==========================================
+     ABA 1: INSCRITOS NO FORMULÁRIO (LEADS)
+     ========================================== -->
+<div id="tabInscritos" class="tab-content active">
+  <div style="background: #ffffff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+    <div style="flex: 1; min-width: 220px;">
+      <input type="text" id="filtroTextoInscritos" class="form-control" placeholder="Buscar por nome ou e-mail..." oninput="filtrarInscritos()">
+    </div>
+    <div style="min-width: 200px;">
+      <select id="filtroCursoInscritos" class="form-control" onchange="filtrarInscritos()">
+        <option value="">Todos os Cursos / Engenharias</option>
+        {% for c in cursos_inscritos %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width: 180px;">
+      <select id="filtroIniciativaInscritos" class="form-control" onchange="filtrarInscritos()">
+        <option value="">Todas as Iniciativas</option>
+        {% for ini in iniciativas_inscritos %}
+        <option value="{{ ini }}">{{ ini }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table class="custom-table" id="tabelaInscritos">
+      <thead>
+        <tr>
+          <th>Data/Hora</th>
+          <th>Nome do Estudante</th>
+          <th>E-mail</th>
+          <th>WhatsApp</th>
+          <th>Curso / Engenharia</th>
+          <th>Iniciativa / Projeto</th>
+          <th>Empresas Desejadas</th>
+          <th>Temas de Palestra Escolhidos</th>
+          <th>Período</th>
+          <th>Horário</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for insc in inscritos %}
+        <tr class="linha-inscrito" data-nome="{{ insc.nome|lower }}" data-email="{{ insc.email|lower }}" data-curso="{{ insc.curso }}" data-iniciativa="{{ insc.iniciativa }}">
+          <td style="font-size: 0.85rem; color: var(--slate-500); white-space: nowrap;">{{ insc.criado_em }}</td>
+          <td><strong>{{ insc.nome }}</strong></td>
+          <td style="font-size: 0.85rem;">{{ insc.email }}</td>
+          <td style="font-size: 0.85rem; white-space: nowrap;">{{ insc.telefone }}</td>
+          <td><span class="badge badge-primary">{{ insc.curso }}</span></td>
+          <td>
+            <span class="badge badge-accent">
+              {{ insc.projeto_extensao if insc.projeto_extensao else insc.iniciativa }}
+            </span>
+            {% if insc.como_soube_opcao %}
+            <div style="font-size: 0.72rem; color: var(--slate-500); margin-top: 2px;">{{ insc.como_soube_opcao }}</div>
+            {% endif %}
+          </td>
+          <td style="max-width: 220px; font-size: 0.85rem;" title="{{ insc.empresas_desejadas }}">
+            {{ insc.empresas_desejadas or '-' }}
+          </td>
+          <td style="max-width: 240px; font-size: 0.82rem;" title="{{ insc.temas_painel }}">
+            {{ insc.temas_painel or '-' }}
+            {% if insc.tema_outro %}
+            <div style="font-size: 0.72rem; color: var(--accent); font-style: italic;">Outro: {{ insc.tema_outro }}</div>
+            {% endif %}
+          </td>
+          <td style="text-align: center; font-size: 0.85rem;"><span class="badge badge-slate">{{ insc.periodo_palestras or '-' }}</span></td>
+          <td style="text-align: center; font-size: 0.85rem;"><span class="badge badge-secondary">{{ insc.horario_feira or '-' }}</span></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" style="text-align: center; padding: 40px; color: var(--slate-500);">
+            Nenhuma resposta de formulário registrada até o momento.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==========================================
+     ABA 2: RANKING DE BRINDES (ELO & BT)
+     ========================================== -->
+<div id="tabBrindes" class="tab-content">
+  <div class="table-container">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th style="width: 60px; text-align: center;">#</th>
+          <th style="width: 80px; text-align: center;">Foto</th>
+          <th>Nome do Brinde</th>
+          <th style="text-align: right;">Rating Elo</th>
+          <th style="text-align: center;">Tier</th>
+          <th style="text-align: center;">Duelos</th>
+          <th style="text-align: center;">Vitórias</th>
+          <th style="text-align: right;">Taxa de Escolha</th>
+          <th style="text-align: right;">Força BT (π)</th>
+          <th style="text-align: center;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in leaderboard_brindes %}
+        <tr>
+          <td style="text-align: center; font-weight: 700; color: var(--slate-400);">{{ item.posicao }}</td>
+          <td style="text-align: center;">
+            <img src="{{ item.imagem_url }}" alt="{{ item.nome }}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--slate-200);" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=100&fit=crop'">
+          </td>
+          <td><strong>{{ item.nome }}</strong></td>
+          <td style="text-align: right; font-weight: 700; color: var(--primary);">{{ "%.1f"|format(item.rating_elo) }}</td>
+          <td style="text-align: center;"><span class="badge badge-primary">{{ item.tier }}</span></td>
+          <td style="text-align: center;">{{ item.jogos }}</td>
+          <td style="text-align: center;">{{ item.vitorias }}</td>
+          <td style="text-align: right; font-weight: 600;">{{ "%.1f"|format(item.taxa_vitoria) }}%</td>
+          <td style="text-align: right; color: var(--slate-500);">{{ "%.3f"|format(item.forca_bt) }}</td>
+          <td style="text-align: center;">
+            <button class="btn btn-sm {% if item.ativo %}btn-outline-primary{% else %}btn-outline{% endif %}" onclick="alternarStatusItem('{{ item.id }}', this)">
+              {{ "Ativo" if item.ativo else "Inativo" }}
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==========================================
+     ABA 3: RANKING DE TEMAS DE PALESTRAS
+     ========================================== -->
+<div id="tabPalestras" class="tab-content">
+  <div style="background: #ffffff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <p style="color: var(--slate-600); font-size: 0.92rem; margin: 0;">
+      Temas curados de alto impacto tecnológico, liderança e engenharia aplicada.
+    </p>
+    <div style="min-width: 240px;">
+      <select id="filtroCursoPalestraAdmin" class="form-control" onchange="filtrarPalestrasAdmin()">
+        <option value="">Todos os Cursos / Visão Geral</option>
+        <option value="todos">Transversal / Todos</option>
+        <option value="Civil">Engenharia Civil</option>
+        <option value="Mecânica">Engenharia Mecânica & Aeroespacial</option>
+        <option value="Elétrica">Engenharia Elétrica & Automação</option>
+        <option value="Produção">Engenharia de Produção</option>
+        <option value="Computação">Engenharia de Computação & Sistemas</option>
+        <option value="Minas">Minas, Metalúrgica & Química</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table class="custom-table" id="tabelaPalestras">
+      <thead>
+        <tr>
+          <th style="width: 60px; text-align: center;">#</th>
+          <th style="width: 80px; text-align: center;">Foto</th>
+          <th>Tema da Palestra</th>
+          <th>Curso(s) Alvo</th>
+          <th style="text-align: right;">Rating Elo</th>
+          <th style="text-align: center;">Tier</th>
+          <th style="text-align: center;">Duelos</th>
+          <th style="text-align: center;">Vitórias</th>
+          <th style="text-align: right;">Taxa de Vitória</th>
+          <th style="text-align: right;">Força BT (π)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in leaderboard_palestras %}
+        <tr class="linha-palestra" data-curso-alvo="{{ p.curso_alvo }}">
+          <td style="text-align: center; font-weight: 700; color: var(--slate-400);">{{ p.posicao }}</td>
+          <td style="text-align: center;">
+            <img src="{{ p.imagem_url }}" alt="{{ p.nome }}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--slate-200);" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=100&fit=crop'">
+          </td>
+          <td><strong>{{ p.nome }}</strong></td>
+          <td><span class="badge badge-secondary" style="font-size: 0.75rem;">{{ p.curso_alvo }}</span></td>
+          <td style="text-align: right; font-weight: 700; color: var(--accent);">{{ "%.1f"|format(p.rating_elo) }}</td>
+          <td style="text-align: center;"><span class="badge badge-primary">{{ p.tier }}</span></td>
+          <td style="text-align: center;">{{ p.jogos }}</td>
+          <td style="text-align: center;">{{ p.vitorias }}</td>
+          <td style="text-align: right; font-weight: 600;">{{ "%.1f"|format(p.taxa_vitoria) }}%</td>
+          <td style="text-align: right; color: var(--slate-500);">{{ "%.3f"|format(p.forca_bt) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==========================================
+     ABA 4: AUDITORIA DE DUELOS
+     ========================================== -->
+<div id="tabAuditoria" class="tab-content">
+  <div class="table-container">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Data/Hora</th>
+          <th>Categoria</th>
+          <th>Participante (UID)</th>
+          <th>Iniciativa</th>
+          <th>Opção Confrontada A</th>
+          <th>Opção Confrontada B</th>
+          <th>Vencedor</th>
+          <th style="text-align: right;">Variação Elo (Δ)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in recent_duels %}
+        <tr>
+          <td style="color: var(--slate-400);">{{ d.id }}</td>
+          <td style="font-size: 0.85rem; color: var(--slate-500); white-space: nowrap;">{{ d.timestamp }}</td>
+          <td>
+            {% if d.categoria == 'palestra' %}
+            <span class="badge badge-accent">Palestra</span>
+            {% else %}
+            <span class="badge badge-primary">Brinde</span>
+            {% endif %}
+          </td>
+          <td style="font-family: monospace; font-size: 0.85rem;">{{ d.uid }}</td>
+          <td><span class="badge badge-slate">{{ d.canal }}</span></td>
+          <td style="font-size: 0.88rem;">{{ d.item_a_nome }}</td>
+          <td style="font-size: 0.88rem;">{{ d.item_b_nome }}</td>
+          <td style="color: var(--success); font-weight: 700; font-size: 0.88rem;">{{ d.vencedor_nome }}</td>
+          <td style="text-align: right; font-weight: 600; color: var(--primary);">±{{ "%.1f"|format(d.delta_elo) }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 40px; color: var(--slate-500);">
+            Nenhum duelo registrado recentemente.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==========================================
+     ABA 5: GERADOR DE LINKS POR INICIATIVA
+     ========================================== -->
+<div id="tabLinks" class="tab-content">
+  <div style="background: #ffffff; border-radius: 16px; border: 1px solid var(--slate-200); padding: 28px; max-width: 760px; margin: 0 auto; box-shadow: var(--shadow-sm);">
+    <h3 style="font-size: 1.3rem; color: var(--primary); margin-bottom: 8px;">🔗 Gerador de Links Exclusivos por Iniciativa</h3>
+    <p style="color: var(--slate-500); font-size: 0.95rem; margin-bottom: 20px;">
+      Gere links personalizados para cada entidade parceira, empresa júnior ou canal de divulgação para rastrear os votos e garantir que os usuários não repitam combinações.
+    </p>
+
+    <div class="form-group">
+      <label class="form-label">Nome da Iniciativa ou Canal Parceiro:</label>
+      <div style="display: flex; gap: 10px;">
+        <input type="text" id="inputNomeIniciativa" class="form-control" placeholder="Ex: MinasJr, AeroJr, Avant, EMAS, PJ, CPE..." oninput="atualizarLinkGerado()">
+        <button class="btn btn-primary" onclick="copiarLinkGerado()">
+          <span>📋</span> Copiar Link
+        </button>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px;">
+      <label class="form-label">Link Formatado Pronto para Compartilhamento:</label>
+      <input type="text" id="inputLinkGerado" class="form-control" readonly style="background: var(--slate-50); font-family: monospace; color: var(--primary); font-weight: 600;">
+    </div>
+
+    <div style="margin-top: 24px;">
+      <label class="form-label">Atalhos Rápidos de Iniciativas Mapeadas:</label>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+        {% set entidades = ['Minas Jr', 'Aero Jr', 'Avant', 'EMAS', 'PJ', 'CPE', 'Autobotz', 'Fórmula'] %}
+        {% for ent in entidades %}
+        <button class="btn btn-outline btn-sm" onclick="definirIniciativaRapida('{{ ent }}')">
+          + {{ ent }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     ABA 6: CONFIGURAÇÕES & SEGURANÇA
+     ========================================== -->
+<div id="tabConfig" class="tab-content">
+  <div style="background: #ffffff; border-radius: 16px; border: 1px solid var(--slate-200); padding: 28px; max-width: 600px; margin: 0 auto; box-shadow: var(--shadow-sm);">
+    <h3 style="font-size: 1.3rem; color: var(--primary); margin-bottom: 8px;">🔑 Alterar Senha Administrativa</h3>
+    <p style="color: var(--slate-500); font-size: 0.95rem; margin-bottom: 20px;">
+      Atualize a senha de acesso a esta área restrita e aos dados analíticos.
+    </p>
+
+    <div class="form-group">
+      <label for="novaSenha" class="form-label">Nova Senha:</label>
+      <input type="password" id="novaSenha" class="form-control" placeholder="Digite a nova senha segura">
+    </div>
+
+    <div style="margin-top: 16px; text-align: right;">
+      <button class="btn btn-primary" onclick="salvarNovaSenha()">
+        <span>Salvar Nova Senha</span>
+      </button>
+    </div>
+
+    <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--slate-200);">
+
+    <div>
+      <h4 style="color: var(--danger); font-size: 1.1rem; margin-bottom: 6px;">Zona de Redefinição</h4>
+      <p style="color: var(--slate-500); font-size: 0.85rem; margin-bottom: 12px;">
+        Esta ação limpa o histórico de votos e reinicia todas as pontuações Elo para 1000.0. Use apenas para reiniciar o torneio.
+      </p>
+      <button class="btn btn-outline" style="border-color: var(--danger); color: var(--danger);" onclick="confirmarReset()">
+        ⚠️ Reiniciar Pontuações Elo
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function trocarAba(btnEl, tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    btnEl.classList.add('active');
+    const alvo = document.getElementById(tabId);
+    if (alvo) alvo.classList.add('active');
+  }
+
+  // Filtro de Inscritos
+  function filtrarInscritos() {
+    const txt = (document.getElementById('filtroTextoInscritos').value || '').toLowerCase();
+    const curso = document.getElementById('filtroCursoInscritos').value;
+    const ini = document.getElementById('filtroIniciativaInscritos').value;
+
+    document.querySelectorAll('.linha-inscrito').forEach(tr => {
+      const nome = tr.getAttribute('data-nome');
+      const email = tr.getAttribute('data-email');
+      const trCurso = tr.getAttribute('data-curso');
+      const trIni = tr.getAttribute('data-iniciativa');
+
+      const matchTxt = !txt || nome.includes(txt) || email.includes(txt);
+      const matchCurso = !curso || trCurso === curso;
+      const matchIni = !ini || trIni === ini;
+
+      if (matchTxt && matchCurso && matchIni) {
+        tr.style.display = '';
+      } else {
+        tr.style.display = 'none';
+      }
+    });
+  }
+
+  // Filtro de Palestras
+  function filtrarPalestrasAdmin() {
+    const filtro = document.getElementById('filtroCursoPalestraAdmin').value;
+    document.querySelectorAll('.linha-palestra').forEach(tr => {
+      const alvo = tr.getAttribute('data-curso-alvo') || '';
+      if (!filtro || alvo === 'todos' || alvo.includes(filtro)) {
+        tr.style.display = '';
+      } else {
+        tr.style.display = 'none';
+      }
+    });
+  }
+
+  // Gerador de Links
+  function atualizarLinkGerado() {
+    const ini = document.getElementById('inputNomeIniciativa').value.trim();
+    const base = window.location.origin + '/';
+    const link = ini ? `${base}?iniciativa=${encodeURIComponent(ini)}` : base;
+    document.getElementById('inputLinkGerado').value = link;
+  }
+
+  function definirIniciativaRapida(nome) {
+    document.getElementById('inputNomeIniciativa').value = nome;
+    atualizarLinkGerado();
+  }
+
+  function copiarLinkGerado() {
+    const input = document.getElementById('inputLinkGerado');
+    if (!input || !input.value) return;
+    navigator.clipboard.writeText(input.value).then(() => {
+      mostrarToast('Link copiado para a área de transferência!', '📋');
+    });
+  }
+
+  async function alternarStatusItem(itemId, btnEl) {
+    try {
+      const res = await fetch(`/api/itens/${itemId}/status`, { method: 'PATCH' });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.ativo === 1) {
+          btnEl.textContent = 'Ativo';
+          btnEl.className = 'btn btn-sm btn-outline-primary';
+        } else {
+          btnEl.textContent = 'Inativo';
+          btnEl.className = 'btn btn-sm btn-outline';
+        }
+        mostrarToast('Status atualizado!', '✅');
+      }
+    } catch (e) {
+      mostrarToast('Erro ao atualizar status', '❌');
+    }
+  }
+
+  async function salvarNovaSenha() {
+    const inp = document.getElementById('novaSenha');
+    const senha = inp.value.trim();
+    if (senha.length < 3) {
+      mostrarToast('A senha deve ter pelo menos 3 caracteres.', '⚠️');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/alterar-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nova_senha: senha })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        inp.value = '';
+        mostrarToast('Senha atualizada com sucesso!', '🔒');
+      } else {
+        mostrarToast(data.detail || 'Erro ao alterar senha', '❌');
+      }
+    } catch (e) {
+      mostrarToast('Erro ao conectar ao servidor', '❌');
+    }
+  }
+
+  async function confirmarReset() {
+    const conf = prompt('Digite CONFIRMAR_RESET para limpar o histórico e resetar os ratings para 1000.0:');
+    if (conf !== 'CONFIRMAR_RESET') {
+      alert('Operação cancelada.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmacao: conf })
+      });
+      if (res.ok) {
+        alert('Torneio resetado com sucesso!');
+        window.location.reload();
+      }
+    } catch (e) {
+      alert('Erro ao resetar.');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    atualizarLinkGerado();
+  });
+</script>
+{% endblock %}

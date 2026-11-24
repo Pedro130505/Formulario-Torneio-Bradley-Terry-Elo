@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Acesso Administrativo | Mercado em Conexão{% endblock %}
+
+{% block content %}
+<div style="min-height: 65vh; display: flex; align-items: center; justify-content: center; padding: 20px 0;">
+  <div style="width: 100%; max-width: 440px; background: #ffffff; border: 1px solid var(--slate-200); border-radius: var(--radius-xl); padding: 36px 32px; box-shadow: var(--shadow-xl); text-align: center;">
+    
+    <div style="width: 56px; height: 56px; background: var(--primary-light); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; margin: 0 auto 16px;">
+      🔒
+    </div>
+
+    <h1 style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin-bottom: 6px; letter-spacing: -0.02em;">
+      Acesso da Gestão
+    </h1>
+    <p style="font-size: 0.9rem; color: var(--slate-500); line-height: 1.45; margin-bottom: 24px;">
+      Área restrita à organização da Mercado em Conexão para acompanhamento de leads, rankings e exportação de dados.
+    </p>
+
+    {% if error %}
+    <div style="background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; margin-bottom: 20px; text-align: left; display: flex; align-items: center; gap: 8px;">
+      <span>⚠️</span> <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+      <div style="margin-bottom: 20px; text-align: left;">
+        <label for="senha" style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--slate-700); margin-bottom: 8px;">
+          Senha de Acesso
+        </label>
+        <div style="position: relative;">
+          <input 
+            type="password" 
+            id="senha" 
+            name="senha" 
+            required 
+            placeholder="Digite a senha de administrador..."
+            class="form-control"
+            style="width: 100%; padding-right: 40px;"
+            autofocus
+          >
+          <button 
+            type="button" 
+            onclick="alternarVisibilidadeSenha()" 
+            style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--slate-400); font-size: 1rem;"
+            title="Mostrar ou ocultar senha"
+          >
+            👁️
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 1rem;">
+        <span>🔓</span> <strong>Entrar no Painel de Análise</strong>
+      </button>
+    </form>
+
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--slate-200); display: flex; flex-direction: column; gap: 12px; font-size: 0.85rem;">
+      <span style="color: var(--slate-500);">
+        🔑 Senha padrão inicial: <code style="background: var(--slate-100); padding: 2px 6px; border-radius: 4px; font-weight: 700; color: var(--slate-800);">admin123</code>
+      </span>
+      <a href="/" style="color: var(--primary); text-decoration: none; font-weight: 600;">
+        ← Voltar para o Formulário e Arena
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function alternarVisibilidadeSenha() {
+  const input = document.getElementById('senha');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+</script>
+{% endblock %}

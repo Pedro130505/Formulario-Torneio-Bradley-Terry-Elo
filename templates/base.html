@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Mercado em Conexão (UFMG) | Gamificação & Pesquisa{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=3.5">
+  <link rel="icon" href="/static/img/logo_mec_simbolo.png" type="image/png">
+</head>
+<body>
+  <!-- Barra de Navegação -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="/" class="brand-wrapper" title="Mercado em Conexão - Feira de Carreiras UFMG">
+        <img src="/static/img/logo_mec_oficial.png?v=3.5" alt="Mercado em Conexão" class="brand-logo-img" onerror="this.onerror=null; this.src='/static/img/logo-mec-horizontal-cropped.svg'">
+        <span class="brand-tag">UFMG</span>
+      </a>
+
+      <!-- Menu de Navegação: Visível EXCLUSIVAMENTE para Administrador Autenticado -->
+      {% if is_admin %}
+      <nav>
+        <ul class="nav-links">
+          <li>
+            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
+              <span>⚔️</span> Arena
+            </a>
+          </li>
+          <li>
+            <a href="/ranking" class="nav-link {% if request.url.path == '/ranking' %}active{% endif %}">
+              <span>🏆</span> Rankings Elo
+            </a>
+          </li>
+          <li>
+            <a href="/admin" class="nav-link {% if request.url.path == '/admin' %}active{% endif %}">
+              <span>📊</span> Painel Admin & Leads
+            </a>
+          </li>
+        </ul>
+      </nav>
+      {% endif %}
+
+      <div class="nav-actions">
+        {% if is_admin %}
+        <!-- Ações do Administrador -->
+        <a href="/api/exportar" class="btn btn-accent btn-sm" download title="Exportar dados completos para planilha Excel (.xlsx)">
+          <span>📥</span> <span>Exportar Excel</span>
+        </a>
+        <a href="/logout" class="btn btn-outline btn-sm" title="Sair do modo administrador">
+          <span>🚪</span> Sair
+        </a>
+        {% else %}
+        <!-- Link discreto para o Administrador acessar -->
+        <a href="/login" class="btn btn-outline btn-sm" title="Acesso restrito à comissão organizadora">
+          <span>🔒</span> Área da Gestão
+        </a>
+        {% endif %}
+
+        <!-- Botão de Som Sintético -->
+        <button id="btnSom" class="btn btn-icon-only" onclick="alternarSom()" title="Ativar ou desativar efeitos sonoros">
+          🔊
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-content">
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <!-- Container de Mensagens Toast -->
+  <div id="toastContainer"></div>
+
+  <!-- Rodapé Institucional -->
+  <footer class="footer">
+    <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-weight: 700; color: var(--primary);">Mercado em Conexão</span>
+        <span>•</span>
+        <span>Feira de Carreiras UFMG</span>
+      </div>
+      <div>
+        {% if not is_admin %}
+        <a href="/login" style="color: var(--slate-400); text-decoration: none; font-size: 0.8rem;">
+          🔒 Painel Administrativo
+        </a>
+        {% else %}
+        <span class="badge badge-success" style="font-size: 0.75rem;">👤 Administrador Autenticado</span>
+        {% endif %}
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Controle global de som
+    let somHabilitado = true;
+    function alternarSom() {
+      somHabilitado = !somHabilitado;
+      const btn = document.getElementById('btnSom');
+      if (btn) btn.textContent = somHabilitado ? '🔊' : '🔇';
+      if (window.atualizarEstadoSom) window.atualizarEstadoSom(somHabilitado);
+    }
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

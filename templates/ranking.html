@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Rankings Oficiais Elo | Mercado em Conexão{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+  <div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+      <span class="badge badge-primary">Área Restrita</span>
+      <span class="badge badge-accent">Mercado em Conexão</span>
+    </div>
+    <h1 style="font-size: 2rem; font-weight: 800; color: var(--primary); letter-spacing: -0.02em;">
+      🏆 Rankings Oficiais Elo & Bradley-Terry
+    </h1>
+    <p style="font-size: 1rem; color: var(--slate-500); margin-top: 4px;">
+      Preferências calculadas em tempo real a partir dos duelos dos estudantes nos brindes e temas de palestras.
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <a href="/api/exportar" class="btn btn-accent" download>
+      <span>📥</span> <strong>Exportar Planilha (.xlsx)</strong>
+    </a>
+    <a href="/admin" class="btn btn-primary">
+      <span>📊</span> Painel de Gestão
+    </a>
+  </div>
+</div>
+
+<!-- Abas de Alternância: Brindes vs Palestras -->
+<div class="admin-tabs" style="margin-bottom: 24px;">
+  <button class="tab-btn active" onclick="trocarAbaRanking(this, 'rankSecBrindes')">
+    <span>🎁</span> Ranking de Brindes ({{ leaderboard_brindes|length }})
+  </button>
+  <button class="tab-btn" onclick="trocarAbaRanking(this, 'rankSecPalestras')">
+    <span>🎤</span> Ranking de Palestras ({{ leaderboard_palestras|length }})
+  </button>
+</div>
+
+<!-- ==========================================
+     SEÇÃO RANKING: BRINDES
+     ========================================== -->
+<div id="rankSecBrindes" class="tab-content active">
+  <div class="table-container">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th style="width: 70px; text-align: center;">Pos</th>
+          <th style="width: 80px; text-align: center;">Foto</th>
+          <th>Nome do Brinde</th>
+          <th style="text-align: right;">Rating Elo</th>
+          <th style="text-align: center;">Tier</th>
+          <th style="text-align: center;">Duelos</th>
+          <th style="text-align: center;">Vitórias</th>
+          <th style="text-align: right;">Taxa de Vitória</th>
+          <th style="text-align: right;">Força BT (π)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in leaderboard_brindes %}
+        <tr>
+          <td style="text-align: center; font-weight: 700;">
+            {% if loop.index == 1 %}🥇 1
+            {% elif loop.index == 2 %}🥈 2
+            {% elif loop.index == 3 %}🥉 3
+            {% else %}{{ loop.index }}
+            {% endif %}
+          </td>
+          <td style="text-align: center;">
+            <img src="{{ item.imagem_url }}" alt="{{ item.nome }}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--slate-200);" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=100&fit=crop'">
+          </td>
+          <td><strong>{{ item.nome }}</strong></td>
+          <td style="text-align: right; font-weight: 700; color: var(--primary);">{{ "%.1f"|format(item.rating_elo) }}</td>
+          <td style="text-align: center;"><span class="badge badge-primary">{{ item.tier }}</span></td>
+          <td style="text-align: center;">{{ item.jogos }}</td>
+          <td style="text-align: center;">{{ item.vitorias }}</td>
+          <td style="text-align: right; font-weight: 600;">{{ "%.1f"|format(item.taxa_vitoria) }}%</td>
+          <td style="text-align: right; color: var(--slate-500);">{{ "%.3f"|format(item.forca_bt) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==========================================
+     SEÇÃO RANKING: PALESTRAS
+     ========================================== -->
+<div id="rankSecPalestras" class="tab-content">
+  <div class="table-container">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th style="width: 70px; text-align: center;">Pos</th>
+          <th style="width: 80px; text-align: center;">Foto</th>
+          <th>Tema da Palestra</th>
+          <th>Curso(s) Alvo</th>
+          <th style="text-align: right;">Rating Elo</th>
+          <th style="text-align: center;">Tier</th>
+          <th style="text-align: center;">Duelos</th>
+          <th style="text-align: center;">Vitórias</th>
+          <th style="text-align: right;">Taxa de Vitória</th>
+          <th style="text-align: right;">Força BT (π)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in leaderboard_palestras %}
+        <tr>
+          <td style="text-align: center; font-weight: 700;">
+            {% if loop.index == 1 %}🥇 1
+            {% elif loop.index == 2 %}🥈 2
+            {% elif loop.index == 3 %}🥉 3
+            {% else %}{{ loop.index }}
+            {% endif %}
+          </td>
+          <td style="text-align: center;">
+            <img src="{{ p.imagem_url }}" alt="{{ p.nome }}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--slate-200);" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=100&fit=crop'">
+          </td>
+          <td><strong>{{ p.nome }}</strong></td>
+          <td><span class="badge badge-secondary" style="font-size: 0.75rem;">{{ p.curso_alvo }}</span></td>
+          <td style="text-align: right; font-weight: 700; color: var(--accent);">{{ "%.1f"|format(p.rating_elo) }}</td>
+          <td style="text-align: center;"><span class="badge badge-primary">{{ p.tier }}</span></td>
+          <td style="text-align: center;">{{ p.jogos }}</td>
+          <td style="text-align: center;">{{ p.vitorias }}</td>
+          <td style="text-align: right; font-weight: 600;">{{ "%.1f"|format(p.taxa_vitoria) }}%</td>
+          <td style="text-align: right; color: var(--slate-500);">{{ "%.3f"|format(p.forca_bt) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function trocarAbaRanking(btnEl, secId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  btnEl.classList.add('active');
+  const sec = document.getElementById(secId);
+  if (sec) sec.classList.add('active');
+}
+</script>
+{% endblock %}

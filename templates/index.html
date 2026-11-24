@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block title %}Mercado em Conexão (UFMG) | Pesquisa de Demanda & Escolha de Brindes e Palestras{% endblock %}
+
+{% block content %}
+<!-- Indicador de Progresso das Etapas (Stepper) -->
+<div class="flow-stepper" id="flowStepper">
+  <div class="step-item active" id="stepIndicator1">
+    <div class="step-circle">1</div>
+    <span>Pesquisa de Demanda</span>
+  </div>
+  <div class="step-divider"></div>
+  <div class="step-item" id="stepIndicator2">
+    <div class="step-circle">2</div>
+    <span>Duelo de Brindes</span>
+  </div>
+  <div class="step-divider"></div>
+  <div class="step-item" id="stepIndicator3">
+    <div class="step-circle">3</div>
+    <span>Temas de Palestras</span>
+  </div>
+  <div class="step-divider"></div>
+  <div class="step-item" id="stepIndicator4">
+    <div class="step-circle">4</div>
+    <span>Conclusão</span>
+  </div>
+</div>
+
+<!-- ==========================================
+     ETAPA 1: PESQUISA DE OPINIÃO E DEMANDA (UFMG)
+     Fiel aos formulários oficiais da Mercado em Conexão
+     ========================================== -->
+<div id="etapaFormulario" class="form-card">
+  <div class="form-header">
+    <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+      <span class="badge badge-primary">Edição 2026</span>
+      <span class="badge badge-secondary">Feira de Carreiras UFMG</span>
+      {% if iniciativa and iniciativa != 'Geral' %}
+      <span class="badge badge-accent">Iniciativa: {{ iniciativa }}</span>
+      {% endif %}
+    </div>
+    <h2>Pesquisa de Demanda dos Estudantes</h2>
+    <p>Ajude a construir a maior feira de carreiras da UFMG. Suas respostas definem os nomes de empresas convidadas, os temas das palestras e os melhores brindes do evento.</p>
+  </div>
+
+  <form id="formInscricao" onsubmit="enviarInscricao(event)" novalidate>
+    <input type="hidden" id="iniciativa" name="iniciativa" value="{{ iniciativa }}">
+    <input type="hidden" id="uid" name="uid" value="{{ uid }}">
+
+    <!-- SEÇÃO 1: Identificação e Curso -->
+    <div class="form-section-header">
+      <div class="section-number">1</div>
+      <div>
+        <h3 class="section-title">Identificação & Curso</h3>
+        <p class="section-desc">Seus dados para registrarmos suas preferências acadêmicas.</p>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <!-- Nome Completo -->
+      <div class="form-group full-width">
+        <label for="nome" class="form-label">Nome Completo <span class="required">*</span></label>
+        <input type="text" id="nome" class="form-control" placeholder="Digite seu nome completo" required>
+        <div class="invalid-feedback">Por favor, preencha seu nome completo.</div>
+      </div>
+
+      <!-- Email de Contato -->
+      <div class="form-group">
+        <label for="email" class="form-label">Email de Contato <span class="required">*</span></label>
+        <input type="email" id="email" class="form-control" placeholder="exemplo@ufmg.br" required>
+        <div class="invalid-feedback">Informe um e-mail válido com @.</div>
+      </div>
+
+      <!-- Telefone / WhatsApp -->
+      <div class="form-group">
+        <label for="telefone" class="form-label">Telefone / WhatsApp <span class="required">*</span></label>
+        <input type="tel" id="telefone" class="form-control" placeholder="(31) 99999-9999" maxlength="15" required>
+        <div class="invalid-feedback">Informe um telefone válido com DDD.</div>
+      </div>
+
+      <!-- Curso / Engenharia (Fiel à UFMG + Outros) -->
+      <div class="form-group full-width">
+        <label for="curso" class="form-label">Curso / Engenharia (UFMG) <span class="required">*</span></label>
+        <select id="curso" class="form-control" required onchange="atualizarCursoSelecionado()">
+          <option value="">Selecione seu curso...</option>
+          {% for eng in engenharias %}
+          <option value="{{ eng }}">{{ eng }}</option>
+          {% endfor %}
+        </select>
+        <div class="invalid-feedback">Selecione seu curso ou engenharia.</div>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 2: Origem & Divulgação -->
+    <div class="form-section-header" style="margin-top: 28px;">
+      <div class="section-number">2</div>
+      <div>
+        <h3 class="section-title">Como você ficou sabendo deste formulário?</h3>
+        <p class="section-desc">Nos ajude a rastrear a divulgação e iniciativas parceiras.</p>
+      </div>
+    </div>
+
+    <div class="form-group full-width">
+      <div class="radio-card-stack">
+        <label class="radio-card-option" onclick="selecionarComoSoube(this, 'Instagram da Mercado')">
+          <input type="radio" name="como_soube_opcao" value="Instagram da Mercado" required>
+          <span class="radio-card-bullet"></span>
+          <span class="radio-card-text">1. Instagram da Mercado</span>
+        </label>
+
+        <label class="radio-card-option" onclick="selecionarComoSoube(this, 'Divulgação por algum membro da Mercado')">
+          <input type="radio" name="como_soube_opcao" value="Divulgação por algum membro da Mercado">
+          <span class="radio-card-bullet"></span>
+          <span class="radio-card-text">2. Divulgação por algum membro da Mercado</span>
+        </label>
+
+        <label class="radio-card-option" id="cardIniciativaOpcao" onclick="selecionarComoSoube(this, 'Divulgação de alguma iniciativa')">
+          <input type="radio" name="como_soube_opcao" value="Divulgação de alguma iniciativa">
+          <span class="radio-card-bullet"></span>
+          <span class="radio-card-text">3. Divulgação de alguma iniciativa</span>
+        </label>
+      </div>
+      <div id="comoSoubeError" class="invalid-feedback" style="display: none; margin-top: 6px;">
+        Por favor, selecione como você ficou sabendo deste formulário.
+      </div>
+    </div>
+
+    <!-- Subpergunta condicional: Projeto de Extensão / Empresa Júnior -->
+    <div id="boxProjetoExtensao" class="form-conditional-box" style="display: none;">
+      <label for="projeto_extensao" class="form-label">
+        Por qual Projeto de Extensão você ficou sabendo? <span class="required">*</span>
+      </label>
+      <p class="section-sublabel">Selecione a empresa júnior ou iniciativa estudantil da UFMG que te enviou o link:</p>
+      <select id="projeto_extensao" class="form-control">
+        <option value="">Selecione o Projeto de Extensão / Empresa Júnior...</option>
+        {% for proj in projetos_extensao %}
+        <option value="{{ proj }}" {% if iniciativa and (iniciativa.lower().replace(' ', '') == proj.lower().replace(' ', '') or iniciativa.lower().replace(' ', '') in proj.lower().replace(' ', '')) %}selected{% endif %}>
+          {{ loop.index }}. {{ proj }}
+        </option>
+        {% endfor %}
+      </select>
+      <div id="projetoExtensaoError" class="invalid-feedback" style="display: none; margin-top: 6px;">
+        Por favor, selecione o projeto de extensão correspondente.
+      </div>
+    </div>
+
+    <!-- SEÇÃO 3: Empresas e Contato com a UFMG -->
+    <div class="form-section-header" style="margin-top: 28px;">
+      <div class="section-number">3</div>
+      <div>
+        <h3 class="section-title">Empresas e Mercado de Trabalho</h3>
+        <p class="section-desc">Quais marcas, indústrias e empresas você quer ver na feira?</p>
+      </div>
+    </div>
+
+    <div class="form-group full-width">
+      <label for="empresas_desejadas" class="form-label">
+        Que tipo de empresas (nomes ou setores) você gostaria que tivessem mais presença e contato com os alunos da UFMG? <span class="required">*</span>
+      </label>
+      <textarea id="empresas_desejadas" class="form-control form-textarea" rows="3" placeholder="Ex: Google, Vale, Nubank, Embraer, Ambev, consultorias de estratégia (Bain, McKinsey), bancos de investimento, empresas de energia e IA..." required></textarea>
+      <div class="invalid-feedback">Por favor, compartilhe quais empresas ou setores você gostaria de ver na feira.</div>
+    </div>
+
+    <!-- SEÇÃO 4: Palestras e Conteúdo -->
+    <div class="form-section-header" style="margin-top: 28px;">
+      <div class="section-number">4</div>
+      <div>
+        <h3 class="section-title">Palestras e Conteúdo</h3>
+        <p class="section-desc">Preferências de temas, formato e disponibilidade de horários.</p>
+      </div>
+    </div>
+
+    <!-- Temas de Palestra ou Painel (Selecione até 3) -->
+    <div class="form-group full-width">
+      <label class="form-label">
+        Quais temas de palestra ou painel mais chamariam sua atenção? (Selecione até 3 opções) <span class="required">*</span>
+      </label>
+      <div class="checkbox-group-wrapper">
+        <div class="checkbox-counter">
+          <span>Escolha de 1 a 3 temas prioritários:</span>
+          <span id="counterTemas" class="badge badge-primary">0 / 3 selecionadas</span>
+        </div>
+        <div class="checkbox-grid">
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Inteligência Artificial e Automação (inovação e o impacto da IA no mercado)">
+            <span>Inteligência Artificial e Automação (inovação e o impacto da IA no mercado)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Indústria Pesada e Engenharia (processos, manufatura, energia e grandes operações)">
+            <span>Indústria Pesada e Engenharia (processos, manufatura, energia e grandes operações)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Mercado Financeiro (bancos, fundos de investimento e finanças corporativas)">
+            <span>Mercado Financeiro (bancos, fundos de investimento e finanças corporativas)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Consultoria e Gestão de Negócios (estratégia, resolução de problemas e cases reais)">
+            <span>Consultoria e Gestão de Negócios (estratégia, resolução de problemas e cases reais)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Inovação e Empreendedorismo (como tirar ideias do papel e startups)">
+            <span>Inovação e Empreendedorismo (como tirar ideias do papel e startups)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Carreira e Processos Seletivos (como montar currículo, LinkedIn e entrevistas)">
+            <span>Carreira e Processos Seletivos (como montar currículo, LinkedIn e entrevistas)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Sustentabilidade e Transição Energética (ESG, energias renováveis e descarbonização)">
+            <span>Sustentabilidade e Transição Energética (ESG, energias renováveis e descarbonização)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Ciência de Dados e Business Intelligence (análise de dados, modelos preditivos e tomada de decisão)">
+            <span>Ciência de Dados e Business Intelligence (análise de dados e BI)</span>
+          </label>
+          <label class="custom-checkbox-card" onclick="aoAlternarTemaCheckbox(this)">
+            <input type="checkbox" name="temas_painel" value="Liderança e Desenvolvimento Profissional (gestão de equipes, habilidades interpessoais e crescimento)">
+            <span>Liderança e Desenvolvimento Profissional (gestão de equipes e soft skills)</span>
+          </label>
+          <label class="custom-checkbox-card" id="cardTemaOutro" onclick="aoAlternarTemaOutro(this)">
+            <input type="checkbox" name="temas_painel" value="Outro">
+            <span>Outro tema específico...</span>
+          </label>
+        </div>
+
+        <!-- Campo dinâmico para Outro tema -->
+        <div id="boxTemaOutroInput" style="display: none; margin-top: 12px;">
+          <input type="text" id="tema_outro" class="form-control" placeholder="Descreva qual outro tema você gostaria de assistir...">
+        </div>
+      </div>
+      <div id="temasError" class="invalid-feedback" style="display: none; margin-top: 6px;">
+        Selecione de 1 a 3 temas de palestras ou painéis.
+      </div>
+    </div>
+
+    <!-- Período para Palestras -->
+    <div class="form-group full-width" style="margin-top: 16px;">
+      <label class="form-label">Qual o melhor período para palestras de acordo com sua disponibilidade? <span class="required">*</span></label>
+      <div class="radio-pill-group">
+        <label class="radio-pill" onclick="selecionarRadioSimples(this, 'periodo_palestras', 'Manhã (9-12)')">
+          <input type="radio" name="periodo_palestras" value="Manhã (9-12)" required> Manhã (9-12)
+        </label>
+        <label class="radio-pill" onclick="selecionarRadioSimples(this, 'periodo_palestras', 'Tarde (13-17)')">
+          <input type="radio" name="periodo_palestras" value="Tarde (13-17)"> Tarde (13-17)
+        </label>
+        <label class="radio-pill" onclick="selecionarRadioSimples(this, 'periodo_palestras', 'Noite (17-19)')">
+          <input type="radio" name="periodo_palestras" value="Noite (17-19)"> Noite (17-19)
+        </label>
+        <label class="radio-pill" onclick="selecionarRadioSimples(this, 'periodo_palestras', 'Todos')">
+          <input type="radio" name="periodo_palestras" value="Todos"> Todos os períodos
+        </label>
+      </div>
+      <div id="periodoError" class="invalid-feedback" style="display: none; margin-top: 6px;">
+        Selecione o melhor período para palestras.
+      </div>
+    </div>
+
+    <!-- Horário da Feira -->
+    <div class="form-group full-width" style="margin-top: 16px;">
+      <label class="form-label">Qual melhor horário da feira na sua opinião? <span class="required">*</span></label>
+      <div class="radio-pill-group">
+        <label class="radio-pill" onclick="selecionarRadioSimples(this, 'horario_feira', 'de 9 às 19')">
+          <input type="radio" name="horario_feira" value="de 9 às 19" required> de 9 às 19
+        </label>
+        <label class="radio-pill" onclick="selecionarRadioSimples(this, 'horario_feira', 'de 10 às 20')">
+          <input type="radio" name="horario_feira" value="de 10 às 20"> de 10 às 20
+        </label>
+      </div>
+      <div id="horarioError" class="invalid-feedback" style="display: none; margin-top: 6px;">
+        Selecione sua preferência de horário da feira.
+      </div>
+    </div>
+
+    <div style="margin-top: 36px; text-align: center;">
+      <button type="submit" id="btnSalvarInscricao" class="btn btn-accent btn-lg" style="min-width: 320px;">
+        <span>Enviar Respostas e Votar nos Brindes</span>
+        <span>✨</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ==========================================
+     ETAPA 2: ARENA DE DUELO DE BRINDES
+     Cards 100% limpos: apenas foto + nome + botão
+     ========================================== -->
+<div id="etapaBrindes" style="display: none;">
+  <div class="arena-header">
+    <span class="badge badge-primary" style="margin-bottom: 8px;">Etapa 2 de 3 • Gamificação de Brindes</span>
+    <h1 class="arena-title">Qual brinde você prefere ganhar?</h1>
+    <p class="arena-subtitle">Clique no brinde da sua preferência ou use os atalhos de teclado <strong>[1]</strong> e <strong>[2]</strong>.</p>
+  </div>
+
+  <!-- Barra de Progresso da Sessão de Brindes -->
+  <div class="arena-progress-card">
+    <div style="font-size: 0.9rem; font-weight: 600; color: var(--slate-700);">
+      Duelos avaliados: <span id="votosBrindesContador" class="badge badge-accent">0</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div id="brindesProgressoFill" class="progress-bar-fill"></div>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--slate-500);" id="metaBrindesTexto">
+      Meta: 5 duelos
+    </div>
+  </div>
+
+  <!-- Arena com os 2 Cards Limpos -->
+  <div class="duel-wrapper" id="dueloBrindesContainer">
+    <div style="grid-column: 1 / -1; text-align: center; padding: 60px 0;">
+      <p style="font-size: 1.1rem; color: var(--slate-500);">Carregando opções de brindes...</p>
+    </div>
+  </div>
+
+  <div class="arena-actions">
+    <button class="btn btn-outline btn-sm" onclick="pularDuelo('brinde')" title="Ver outro par de brindes [Espaço]">
+      <span>⏭️</span> Pular duelo (Espaço)
+    </button>
+    
+    <button id="btnAvancarPalestras" class="btn btn-accent btn-md" onclick="avancarParaPalestras()" style="display: none;">
+      <span>Avançar para Temas de Palestras</span>
+      <span>➔</span>
+    </button>
+  </div>
+</div>
+
+<!-- ==========================================
+     ETAPA 3: ARENA DE DUELO DE PALESTRAS
+     Filtradas de acordo com a engenharia/curso do aluno
+     Cards 100% limpos: apenas foto + tema + botão
+     ========================================== -->
+<div id="etapaPalestras" style="display: none;">
+  <div class="arena-header">
+    <span class="badge badge-accent" style="margin-bottom: 8px;">Etapa 3 de 3 • Temas de Palestras</span>
+    <h1 class="arena-title">Quais palestras você mais quer ver no evento?</h1>
+    <p class="arena-subtitle">
+      Temas curados especialmente para estudantes de <strong id="cursoAlunoBadge" style="color: var(--primary);">Engenharia</strong>.
+    </p>
+  </div>
+
+  <!-- Barra de Progresso da Sessão de Palestras -->
+  <div class="arena-progress-card">
+    <div style="font-size: 0.9rem; font-weight: 600; color: var(--slate-700);">
+      Duelos avaliados: <span id="votosPalestrasContador" class="badge badge-accent">0</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div id="palestrasProgressoFill" class="progress-bar-fill"></div>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--slate-500);" id="metaPalestrasTexto">
+      Meta: 5 duelos
+    </div>
+  </div>
+
+  <!-- Arena com os 2 Cards Limpos de Palestras -->
+  <div class="duel-wrapper" id="dueloPalestrasContainer">
+    <div style="grid-column: 1 / -1; text-align: center; padding: 60px 0;">
+      <p style="font-size: 1.1rem; color: var(--slate-500);">Carregando temas de palestras...</p>
+    </div>
+  </div>
+
+  <div class="arena-actions">
+    <button class="btn btn-outline btn-sm" onclick="pularDuelo('palestra')" title="Ver outro par de temas [Espaço]">
+      <span>⏭️</span> Pular duelo (Espaço)
+    </button>
+
+    <button id="btnConcluirParticipacao" class="btn btn-success btn-md" onclick="finalizarTudo()" style="display: none;">
+      <span>Finalizar Participação</span>
+      <span>🏁</span>
+    </button>
+  </div>
+</div>
+
+<!-- ==========================================
+     ETAPA 4: TELA FINAL DE AGRADECIMENTO
+     ========================================== -->
+<div id="etapaFinal" class="completion-card" style="display: none;">
+  <div class="completion-icon">🎉</div>
+  <h2 class="completion-title">Muito obrigado pela sua participação!</h2>
+  <p id="textoFinalNome" class="completion-text">
+    Sua inscrição e suas escolhas de brindes e palestras foram computadas com sucesso no sistema oficial da <strong>Mercado em Conexão (UFMG)</strong>.
+  </p>
+
+  <div style="background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: var(--radius-md); padding: 16px; margin: 20px 0; text-align: left; display: inline-block; width: 100%; max-width: 440px;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+      <span style="color: var(--slate-500); font-size: 0.9rem;">Curso:</span>
+      <strong id="finalResumoCurso" style="color: var(--primary); font-size: 0.95rem;">-</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+      <span style="color: var(--slate-500); font-size: 0.9rem;">Iniciativa:</span>
+      <strong id="finalResumoIniciativa" style="color: var(--accent); font-size: 0.95rem;">-</strong>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span style="color: var(--slate-500); font-size: 0.9rem;">Total de duelos votados:</span>
+      <strong id="finalResumoVotos" style="color: var(--success); font-size: 0.95rem;">0</strong>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+    <button class="btn btn-primary" onclick="continuarVotando()">
+      <span>🔄</span> Continuar Votando Mais Opções
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/flow.js?v=3.5"></script>
+{% endblock %}
